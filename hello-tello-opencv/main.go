@@ -11,6 +11,8 @@ package main
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 	"os/exec"
 	"strconv"
@@ -22,15 +24,15 @@ import (
 )
 
 const (
-	frameX    = 960
-	frameY    = 720
+	frameX    = 400
+	frameY    = 300
 	frameSize = frameX * frameY * 3
 )
 
 func main() {
 	drone := tello.NewDriver("8890")
 	window := gocv.NewWindow("Tello")
-
+	xmlFile := "haarcascade_frontalface_default.xml"
 	ffmpeg := exec.Command("ffmpeg", "-hwaccel", "auto", "-hwaccel_device", "opencl", "-i", "pipe:0",
 		"-pix_fmt", "bgr24", "-s", strconv.Itoa(frameX)+"x"+strconv.Itoa(frameY), "-f", "rawvideo", "pipe:1")
 	ffmpegIn, _ := ffmpeg.StdinPipe()
@@ -80,6 +82,29 @@ func main() {
 		img, _ := gocv.NewMatFromBytes(frameY, frameX, gocv.MatTypeCV8UC3, buf)
 		if img.Empty() {
 			continue
+		}
+
+		// detect faces
+		// color for the rect when faces detected
+		blue := color.RGBA{0, 0, 255, 0}
+		// load classifier to recognize faces
+		classifier := gocv.NewCascadeClassifier()
+		defer classifier.Close()
+		if !classifier.Load(xmlFile) {
+			fmt.Printf("Error reading cascade file: %v\n", xmlFile)
+			return
+		}
+		rects := classifier.DetectMultiScale(img)
+		fmt.Printf("found %d faces\n", len(rects))
+
+		// draw a rectangle around each face on the original image,
+		// along with text identifying as "Human"
+		for _, r := range rects {
+			gocv.Rectangle(&img, r, blue, 3)
+
+			size := gocv.GetTextSize("Human", gocv.FontHersheyPlain, 1.2, 2)
+			pt := image.Pt(r.Min.X+(r.Min.X/2)-(size.X/2), r.Min.Y-2)
+			gocv.PutText(&img, "Human", pt, gocv.FontHersheyPlain, 1.2, blue, 2)
 		}
 
 		window.IMShow(img)
