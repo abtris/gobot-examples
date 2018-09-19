@@ -70,7 +70,8 @@ func main() {
 		case keyboard.ArrowRight:
 			fmt.Println(key.Char)
 			drone.RightFlip()
-		case keyboard.Escape:
+		case keyboard.R:
+			fmt.Println(key.Char)
 			resetDronePostion(drone)
 		}
 	})
